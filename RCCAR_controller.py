@@ -15,7 +15,7 @@
 """vehicle_driver_altino controller."""
 
 from vehicle import Driver
-from controller import Camera , Keyboard , LED
+from controller import Camera, Keyboard, LED
 import time
 import cv2
 import numpy as np
@@ -55,17 +55,6 @@ def resize_image(input_image, output_path=None, width=None, height=None):
 
     cv2.imshow("Resized Image", resized_image)
     cv2.waitKey(0)
-    
-    
-	source_points = [(450, 370), (0, 600), (1180, 600), (880, 370)]
-	desired_points = [(200, 0), (200, 720), (1000, 720), (1000, 0)]
-	center_points = (640, 720)
-
-	left_line_found = False
-	right_line_found = False
-
-	left_fitted_line = []
-	right_fitted_line = []
 
 
 def warp(img, src_points, des_points):
@@ -80,9 +69,9 @@ def warp(img, src_points, des_points):
 
 def abs_sobel_thresh(gray, orient='x', sobel_kernel=3, thresh=(0, 255)):
     if orient == 'x':
-	_sobel = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+        _sobel = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
     else:
-	_sobel = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+        _sobel = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
     abs_sobel = np.absolute(_sobel)
     scaled_sobel = np.uint8(255 * abs_sobel / np.max(abs_sobel))
     s_binary = np.zeros_like(scaled_sobel)
@@ -136,8 +125,6 @@ def binarize(img):
 def find_lane_pixels(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
-    # Create an output image to draw on and visualize the result
-    out_img = np.dstack((binary_warped, binary_warped, binary_warped))
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = int(histogram.shape[0] // 2)
@@ -168,37 +155,37 @@ def find_lane_pixels(binary_warped):
 
     # Step through the windows one by one
     for window in range(n_windows):
-	# Identify window boundaries in x and y (and right and left)
-	win_y_low = binary_warped.shape[0] - (window + 1) * window_height
-	win_y_high = binary_warped.shape[0] - window * window_height
-	win_x_left_low = left_x_current - margin
-	win_x_left_high = left_x_current + margin
-	win_x_right_low = right_x_current - margin
-	win_x_right_high = right_x_current + margin
+        # Identify window boundaries in x and y (and right and left)
+        win_y_low = binary_warped.shape[0] - (window + 1) * window_height
+        win_y_high = binary_warped.shape[0] - window * window_height
+        win_x_left_low = left_x_current - margin
+        win_x_left_high = left_x_current + margin
+        win_x_right_low = right_x_current - margin
+        win_x_right_high = right_x_current + margin
 
-	# Identify the nonzero pixels in x and y within the window #
-	good_left_indices = ((non_zero_y >= win_y_low) & (non_zero_y < win_y_high) &
-	                     (non_zero_x >= win_x_left_low) & (non_zero_x < win_x_left_high)).nonzero()[0]
-	good_right_indices = ((non_zero_y >= win_y_low) & (non_zero_y < win_y_high) &
-	                      (non_zero_x >= win_x_right_low) & (non_zero_x < win_x_right_high)).nonzero()[0]
+        # Identify the nonzero pixels in x and y within the window #
+        good_left_indices = ((non_zero_y >= win_y_low) & (non_zero_y < win_y_high) &
+                             (non_zero_x >= win_x_left_low) & (non_zero_x < win_x_left_high)).nonzero()[0]
+        good_right_indices = ((non_zero_y >= win_y_low) & (non_zero_y < win_y_high) &
+                              (non_zero_x >= win_x_right_low) & (non_zero_x < win_x_right_high)).nonzero()[0]
 
-	# Append these indices to the lists
-	left_lane_indices.append(good_left_indices)
-	right_lane_indices.append(good_right_indices)
+        # Append these indices to the lists
+        left_lane_indices.append(good_left_indices)
+        right_lane_indices.append(good_right_indices)
 
-	# If you found > min_pix pixels, recenter next window on their mean position
-	if len(good_left_indices) > min_pix:
-	    left_x_current = int(np.mean(non_zero_x[good_left_indices]))
-	if len(good_right_indices) > min_pix:
-	    right_x_current = int(np.mean(non_zero_x[good_right_indices]))
+        # If you found > min_pix pixels, recenter next window on their mean position
+        if len(good_left_indices) > min_pix:
+            left_x_current = int(np.mean(non_zero_x[good_left_indices]))
+        if len(good_right_indices) > min_pix:
+            right_x_current = int(np.mean(non_zero_x[good_right_indices]))
 
     # Concatenate the arrays of indices (previously was a list of lists of pixels)
     try:
-	left_lane_indices = np.concatenate(left_lane_indices)
-	right_lane_indices = np.concatenate(right_lane_indices)
+        left_lane_indices = np.concatenate(left_lane_indices)
+        right_lane_indices = np.concatenate(right_lane_indices)
     except ValueError:
-	# Avoids an error if the above is not implemented fully
-	pass
+        # Avoids an error if the above is not implemented fully
+        pass
 
     # Extract left and right line pixel positions
     left_x = non_zero_x[left_lane_indices]
@@ -206,25 +193,25 @@ def find_lane_pixels(binary_warped):
     right_x = non_zero_x[right_lane_indices]
     righty = non_zero_y[right_lane_indices]
 
-    return left_x, lefty, right_x, righty, out_img
+    return left_x, lefty, right_x, righty
 
 
 def fit_polynomial(binary_warped):
     # Find our lane pixels first
-    left_x, lefty, right_x, righty, out_img = find_lane_pixels(binary_warped)
+    left_x, lefty, right_x, righty = find_lane_pixels(binary_warped)
 
     # Fit a second order polynomial to each using `np.polyfit`
     print(left_x)
     print(lefty)
 
     if len(left_x) > 0:
-	left_fit = np.polyfit(lefty, left_x, 2)
+        left_fit = np.polyfit(lefty, left_x, 2)
     else:
-	left_fit = None
+        left_fit = None
     if len(right_x) > 0:
-	right_fit = np.polyfit(righty, right_x, 2)
+        right_fit = np.polyfit(righty, right_x, 2)
     else:
-	right_fit = None
+        right_fit = None
     # print("+++++++++++++++++++++++++++++++++++++++")
     # print(left_fit)
     # print(right_fit)
@@ -232,25 +219,19 @@ def fit_polynomial(binary_warped):
     # Generate x and y values for plotting
     plot_y = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
     try:
-	left_fitx = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
+        left_fitx = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
     except TypeError:
-	# Avoids an error if `left` and `right_fit` are still none or incorrect
-	print('The function failed to fit a line for left side!')
-	left_fitx = None
+        # Avoids an error if `left` and `right_fit` are still none or incorrect
+        print('The function failed to fit a line for left side!')
+        left_fitx = None
 
     try:
-	right_fitx = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
+        right_fitx = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
     except TypeError:
-	right_fitx = None
-	print('The function failed to fit a line for right side!')
+        right_fitx = None
+        print('The function failed to fit a line for right side!')
 
-    # Plots the left and right polynomials on the lane lines
-    if left_fitx is not None:
-	plt.plot(left_fitx, plot_y, color='red')
-    if right_fitx is not None:
-	plt.plot(right_fitx, plot_y, color='red')
-
-    return plot_y, left_fit, right_fit, left_fitx, right_fitx, out_img
+    return plot_y, left_fit, right_fit, left_fitx, right_fitx
 
 
 def fit_poly(img_shape, left_x, lefty, right_x, righty):
@@ -263,49 +244,18 @@ def fit_poly(img_shape, left_x, lefty, right_x, righty):
     return left_fit, right_fit, plot_y, left_fitx, right_fitx
 
 
-"""def search_around_poly(binary_warped, left_fit, right_fit):
-    margin = 100
-
-    # Grab activated pixels
-    nonzero = binary_warped.nonzero()
-    nonzero_y = np.array(nonzero[0])
-    nonzero_x = np.array(nonzero[1])
-
-    left_lane_inds = ((nonzero_x > (left_fit[0] * (nonzero_y ** 2) + left_fit[1] * nonzero_y +
-	                            left_fit[2] - margin)) & (nonzero_x < (left_fit[0] * (nonzero_y ** 2) +
-	                                                                   left_fit[1] * nonzero_y + left_fit[
-	                                                                       2] + margin)))
-    right_lane_inds = ((nonzero_x > (right_fit[0] * (nonzero_y ** 2) + right_fit[1] * nonzero_y +
-	                             right_fit[2] - margin)) & (nonzero_x < (right_fit[0] * (nonzero_y ** 2) +
-	                                                                     right_fit[1] * nonzero_y + right_fit[
-	                                                                         2] + margin)))
-
-    # Again, extract left and right line pixel positions
-    left_x = nonzero_x[left_lane_inds]
-    left_y = nonzero_y[left_lane_inds]
-    right_x = nonzero_x[right_lane_inds]
-    right_y = nonzero_y[right_lane_inds]
-
-    # Fit new polynomials
-    left_fit_, right_fit_, plot_y, left_fitx, right_fitx = fit_poly(binary_warped.shape, left_x, left_y, right_x,
-	                                                            right_y)
-
-    return plot_y, left_fit_, right_fit_, left_fitx, right_fitx
-"""
-
 # control functions
 
 driver = Driver()
 basicTimeStep = int(driver.getBasicTimeStep())
 
-keyboard = Keyboard()  
-print("keyboard object called") 
-keyboard.enable(basicTimeStep) 
+keyboard = Keyboard()
+print("keyboard object called")
+keyboard.enable(basicTimeStep)
 print("keyboard enabled")
 
 camera = Camera('jetcamera')
 camera.enable(10)
-
 
 sensorTimeStep = 4 * basicTimeStep
 # speed refers to the speed in km/h at which we want Altino to travel
@@ -327,6 +277,15 @@ driver.setCruisingSpeed(speed)
 right = False
 printCounter = 0
 i = 0
+source_points = [(450, 370), (0, 600), (1180, 600), (880, 370)]
+desired_points = [(200, 0), (200, 720), (1000, 720), (1000, 0)]
+center_points = (640, 720)
+
+left_line_found = False
+right_line_found = False
+
+left_fitted_line = []
+right_fitted_line = []
 
 turn = True
 n = 0
@@ -335,131 +294,89 @@ while driver.step() != -1:
     # print("speed:",speed)
     # print("Hello World!")
     # if right :
-        # i += 1
+    # i += 1
     # else:
-        # i -= 1
-        
-    # if i > 60 :
-        # right = False
-    # elif i < -60:
-        # right = True
-    # if(i < 0):
-        # driver.setSteeringAngle(0.3)
-    # else:
-        # driver.setSteeringAngle(-0.3)
-    key = keyboard.getKey()
-    
-    
-    if(key == ord('W')):
-       if(speed < maxSpeed):
-           speed = speed + 0.01
-       
-    elif(key == ord('S')):
-       if(speed > minSpeed):
-           speed = speed - 0.01
-    # else:
-        # if(speed > 0):
-            # speed -= 0.01
-        # else:
-            # speed += 0.01
-    if(key == ord('Q')):
-        speed = 0      
-            
+    # i -= 1
 
-    if(key == ord('W') + ord('D') or key == ord('D')):
-        if(angle < maxAngle):
-           angle = angle + 0.05
-           
-    elif(key == ord('S') + ord('A') or key == ord('A')):
-        if(angle > minAngle):
+    # if i > 60 :
+    # right = False
+    # elif i < -60:
+    # right = True
+    # if(i < 0):
+    # driver.setSteeringAngle(0.3)
+    # else:
+    # driver.setSteeringAngle(-0.3)
+    key = keyboard.getKey()
+
+    if (key == ord('W')):
+        if (speed < maxSpeed):
+            speed = speed + 0.01
+
+    elif (key == ord('S')):
+        if (speed > minSpeed):
+            speed = speed - 0.01
+    # else:
+    # if(speed > 0):
+    # speed -= 0.01
+    # else:
+    # speed += 0.01
+    if (key == ord('Q')):
+        speed = 0
+
+    if (key == ord('W') + ord('D') or key == ord('D')):
+        if (angle < maxAngle):
+            angle = angle + 0.05
+
+    elif (key == ord('S') + ord('A') or key == ord('A')):
+        if (angle > minAngle):
             angle = angle - 0.05
-            
+
     else:
-        if(angle > 0.1):
+        if (angle > 0.1):
             angle -= 0.1
-        elif(angle < -0.1):
+        elif (angle < -0.1):
             angle += 0.1
         else:
             angle = 0
-    
+
     n += 1
     img = camera.getImage()
     image = np.frombuffer(img, np.uint8).reshape((camera.getHeight(), camera.getWidth(), 4))
-    frame = image[:,:,:3]
-    
-    # cv2.imwrite(f"frame-{frame_num}.jpg", frame)
-    # frame_num += 1
-    # cv2.imshow("frame" , image)
-    # cv2.waitKey(1)
-    
+    frame = image[:, :, :3]
+
     ############################
     """lane detection phase"""
-	# startTime = datetime.now()
-	#image = cv2.imread(r"./frames/frame-1586.jpg")
+    # startTime = datetime.now()
+    # image = cv2.imread(r"./frames/frame-1586.jpg")
 
-	warped_img = warp(frame, source_points, desired_points)
-	new_image = binarize(warped_img)
-	combiner = np.zeros_like(new_image, dtype=np.uint8)
-	combiner[:, 200:1060] = 1
-	new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
+    image = cv2.imread(r"./frames/frame-0.jpg")
 
-	# gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
-	# hls = cv2.cvtColor(warped_img, cv2.COLOR_BGR2HLS)
+    warped_img = warp(image, source_points, desired_points)
+    new_image = binarize(warped_img)
+    combiner = np.zeros_like(new_image, dtype=np.uint8)
+    combiner[:600, 100:1060] = 1
+    new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
 
-	plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_, out_img_ = fit_polynomial(new_image)
-	# print(right_fitx)
-	# print(len(plot_y))
-	# print(f"right fit {right_fitx[719]}:{plot_y[719]}")
-	# print(f"left fit {left_fitx[719]}:{plot_y[719]}")
+    plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
 
-	if left_fitx_ is not None:
-	    print(center_points[0] - left_fitx_[719])
-	    left_fitted_line = True
+    if not left_fitted_line:
+        if left_fitx_ is not None:
+            # print(center_points[0] - left_fitx_[719])
+            left_fitted_line = True
+            distance = center_points[0] - left_fitx_[719]
 
-	if right_fitx_ is not None:
-	    print(right_fitx_[719] - center_points[0])
-	    right_fitted_line = True
+    # else:
 
-	print(
-	    f"distance from left line {center_points[0] - left_fitx_[719]} and distance from right line"
-	    f" {right_fitx_[719] - center_points[0]}")
+    if not right_fitted_line and left_fitx_ is None:
+        if right_fitx_ is not None:
+            # print(right_fitx_[719] - center_points[0])
+            right_fitted_line = True
+            distance = right_fitx_[719] - center_points[0]
 
-	# if left_line_found and right_line_found:
+# resize_image(frame, width=400)
+############################################
+driver.setSteeringAngle(angle)
+driver.setCruisingSpeed(speed)
 
-
-	# new_image = cv2.cvtColor(warped_img, cv2.COLOR_BGR2RGB)
-	# plt.imshow(warped_img)
-	# plt.show()
-	# h_channel = hls[:, :, 0]
-	# s_channel = hls[:, :, 1]
-	# v_channel = hls[:, :, 2]
-	#
-	# cv2.imshow("Image1", h_channel)
-	# cv2.waitKey(0)
-	# cv2.imshow("Image2", s_channel)
-	# cv2.waitKey(0)
-	# cv2.imshow("Image3", v_channel)
-	# cv2.waitKey(0)
-
-	# print(combiner)
-
-	# Perform the bitwise_and operation
-
-	# print(hello.shape)
-
-	# plot_image = cv2.cvtColor(hello, cv2.COLOR_BGR2RGB)
-
-	# plt.imshow(new_image)
-	# plt.show()
-	# print(datetime.now() - startTime)
-	# cv2.imshow("Image", new_image)
-	# cv2.waitKey(0)
-
-    
-    # resize_image(frame, width=400)
-    ############################################
-    driver.setSteeringAngle(angle)
-    driver.setCruisingSpeed(speed)
-    
 writer.release()
 cv2.destroyAllWindows()
