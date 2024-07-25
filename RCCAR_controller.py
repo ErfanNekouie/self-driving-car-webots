@@ -26,7 +26,7 @@ matplotlib.use("TkAgg")
 
 
 # lane finding functions
-def resize_image(input_image, output_path=None, width=None, height=None):
+def resize_image(input_image, width=None, height=None):
     # Load the image from the input path
     if input_image is None:
         print(f"Error: Could not load image from {input_path}")
@@ -49,9 +49,6 @@ def resize_image(input_image, output_path=None, width=None, height=None):
     resized_image = cv2.resize(input_image, (width, height), interpolation=cv2.INTER_AREA)
 
     # Save the resized image to the output path
-    if output_path is not None:
-        cv2.imwrite(output_path, resized_image)
-        print(f"Resized image saved to {output_path}")
 
     cv2.imshow("Resized Image", resized_image)
     cv2.waitKey(1)
@@ -302,7 +299,7 @@ n = 0
 # Mohammad variables
 e = 0
 sum = 0
-kp = 0.002
+kp = 0.02
 ki = 0
 kd = 0
 # Mohammad variables
@@ -379,30 +376,31 @@ while driver.step() != -1:
         last_left_fitx = left_fitx_
     if right_fitx_ is not None:
         last_right_fitx = right_fitx_
-    base_line = (right_fitx_ + left_fitx_) / 2
+    base_line = (last_right_fitx + last_left_fitx) / 2
 
     distance = center_points[0] - base_line[719]
     print(f'distance: {distance}')
 
-    draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
-    draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
-    draw_polynomial(warped_img, left_fitx_, plot_y_, (0, 0, 255))
-    draw_polynomial(warped_img, center_points[0] * np.ones_like(plot_y_), plot_y_)
+    # draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
+    # draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
+    # draw_polynomial(warped_img, left_fitx_, plot_y_, (0, 0, 255))
+    # draw_polynomial(warped_img, center_points[0] * np.ones_like(plot_y_), plot_y_)
 
     # Show the image
-    cv2.imshow("Quadratic Polynomial", warped_img)
-    cv2.waitKey(1)
+    # resized_image = cv2.resize(warped_img, (400, 300), interpolation=cv2.INTER_AREA)
+    # cv2.imshow("Quadratic Polynomial", resized_image)
+    # cv2.waitKey(1)
 
     # resize_image(frame, width=400)
     ###########################################  #
     # control code
-    distance = 300 - distance
+    distance = -distance
     derror = distance - e
     e = distance
     sum += distance
     speed = 0.5
     angle = kp * distance + ki * sum + kd * derror
-    print(distance)
+  
 
     driver.setSteeringAngle(angle)
     driver.setCruisingSpeed(speed)
