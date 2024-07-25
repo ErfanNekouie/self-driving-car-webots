@@ -122,6 +122,14 @@ def binarize(img):
     return combined.astype(np.uint8)
 
 
+def draw_polynomial(image_inner, x_values, y_values, color=(0, 255, 0)):
+    points = np.array([np.vstack((x_values, y_values)).astype(np.int32).T])
+
+    # Draw the polynomial on the image
+    for point in points[0]:
+        cv2.circle(image_inner, tuple(point), 1, color, 12)
+
+
 def find_lane_pixels(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
@@ -367,11 +375,23 @@ while driver.step() != -1:
 
     plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
 
-    if left_fitx_ is not None and right_fitx_ is not None:
-        base_line = (right_fitx_ + left_fitx_) / 2
+    if left_fitx_ is not None:
+        last_left_fitx = left_fitx_
+    if right_fitx_ is not None:
+        last_right_fitx = right_fitx_
+    base_line = (right_fitx_ + left_fitx_) / 2
 
     distance = center_points[0] - base_line[719]
     print(f'distance: {distance}')
+
+    draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
+    draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
+    draw_polynomial(warped_img, left_fitx_, plot_y_, (0, 0, 255))
+    draw_polynomial(warped_img, center_points[0] * np.ones_like(plot_y_), plot_y_)
+
+    # Show the image
+    cv2.imshow("Quadratic Polynomial", warped_img)
+    cv2.waitKey(1)
 
     # resize_image(frame, width=400)
     ###########################################  #
