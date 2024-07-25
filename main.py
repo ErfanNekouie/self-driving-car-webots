@@ -259,14 +259,19 @@ plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_, out_img_ = fit_polynomi
 # print(len(plot_y))
 # print(f"right fit {right_fitx[719]}:{plot_y[719]}")
 # print(f"left fit {left_fitx[719]}:{plot_y[719]}")
+warped_img = warp(image, source_points, desired_points)
+new_image = binarize(warped_img)
+combiner = np.zeros_like(new_image, dtype=np.uint8)
+combiner[:600, 100:1060] = 1
+new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
 
-if left_fitx_ is not None:
-    print(center_points[0] - left_fitx_[719])
-    left_fitted_line = True
+plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
 
-if right_fitx_ is not None:
-    print(right_fitx_[719] - center_points[0])
-    right_fitted_line = True
+if left_fitx_ is not None and right_fitx_ is not None:
+    base_line = (right_fitx_ + left_fitx_) / 2
+
+distance = center_points[0] - base_line[719]
+print(f'distance: {distance}')
 
 # print(
 #     f"distance from left line {center_points[0] - left_fitx_[719]} and distance from right line"
