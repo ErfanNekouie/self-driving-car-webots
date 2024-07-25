@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from datetime import datetime
 
 matplotlib.use('TkAgg')
 
@@ -22,9 +21,9 @@ def warp(img, src_points, des_points):
     src = np.float32(src_points)
     dst = np.float32(des_points)
     transfer_matrices = cv2.getPerspectiveTransform(src, dst)
-    # un_transfer_matrices = cv2.getPerspectiveTransform(dst, src)
+    un_transfer_matrices = cv2.getPerspectiveTransform(dst, src)
     warped = cv2.warpPerspective(img, transfer_matrices, img_size, flags=cv2.INTER_LINEAR)
-    return warped  # un_transfer_matrices
+    return warped, un_transfer_matrices
 
 
 def abs_sobel_thresh(gray, orient='x', sobel_kernel=3, thresh=(0, 255)):
@@ -82,11 +81,26 @@ def binarize(img):
     return combined.astype(np.uint8)
 
 
+def line_indices(poly_fitted, non_zero_arr_x, non_zero_arr_y, margin):
+    return ((non_zero_arr_x > (
+            poly_fitted[0] * (non_zero_arr_y ** 2) + poly_fitted[1] * non_zero_arr_y + poly_fitted[2] - margin)) &
+            (non_zero_arr_x < (poly_fitted[0] * (non_zero_arr_y ** 2) +
+                               poly_fitted[1] * non_zero_arr_y + poly_fitted[2] + margin)))
+
+
+# def find_lane_pixels_ind(binary_warped, mode="left"):
+#     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
+#     midpoint = int(histogram.shape[0] // 2)
+#     left_x_base = np.argmax(histogram[:midpoint])
+#     right_x_base = np.argmax(histogram[midpoint:]) + midpoint
+#     if mode == "both":
+#         left_x_base = np.argmax(histogram[:midpoint])
+#     if mode == ""
+
+
 def find_lane_pixels(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
-    # Create an output image to draw on and visualize the result
-    out_img = np.dstack((binary_warped, binary_warped, binary_warped))
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = int(histogram.shape[0] // 2)
@@ -155,17 +169,14 @@ def find_lane_pixels(binary_warped):
     right_x = non_zero_x[right_lane_indices]
     righty = non_zero_y[right_lane_indices]
 
-    return left_x, lefty, right_x, righty, out_img
+    return left_x, lefty, right_x, righty
 
 
 def fit_polynomial(binary_warped):
     # Find our lane pixels first
-    left_x, lefty, right_x, righty, out_img = find_lane_pixels(binary_warped)
+    left_x, lefty, right_x, righty = find_lane_pixels(binary_warped)
 
-    # Fit a second order polynomial to each using `np.polyfit`
-    print(left_x)
-    print(lefty)
-
+    # Fit a second order polynomial
     if len(left_x) > 0:
         left_fit = np.polyfit(lefty, left_x, 2)
     else:
@@ -193,23 +204,23 @@ def fit_polynomial(binary_warped):
         right_fitx = None
         print('The function failed to fit a line for right side!')
 
-    # Plots the left and right polynomials on the lane lines
-    if left_fitx is not None:
-        plt.plot(left_fitx, plot_y, color='red')
-    if right_fitx is not None:
-        plt.plot(right_fitx, plot_y, color='red')
-
-    return plot_y, left_fit, right_fit, left_fitx, right_fitx, out_img
+    return plot_y, left_fit, right_fit, left_fitx, right_fitx
 
 
-def fit_poly(img_shape, left_x, lefty, right_x, righty):
-    left_fit = np.polyfit(lefty, left_x, 2)
-    right_fit = np.polyfit(righty, right_x, 2)
+def draw_polynomial(image_inner, x_values, y_values, color=(0, 255, 0)):
+    points = np.array([np.vstack((x_values, y_values)).astype(np.int32).T])
+
+    # Draw the polynomial on the image
+    for point in points[0]:
+        cv2.circle(image_inner, tuple(point), 1, color, 12)
+
+
+def fit_poly(img_shape, x_axis, y_axis):
+    polynomial_fit = np.polyfit(y_axis, x_axis, 2)
     plot_y = np.linspace(0, img_shape[0] - 1, img_shape[0])
-    left_fitx = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
-    right_fitx = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
+    plot_x = polynomial_fit[0] * plot_y ** 2 + polynomial_fit[1] * plot_y + polynomial_fit[2]
 
-    return left_fit, right_fit, plot_y, left_fitx, right_fitx
+    return plot_x, plot_y, polynomial_fit
 
 
 def search_around_poly(binary_warped, left_fit, right_fit):
@@ -220,58 +231,84 @@ def search_around_poly(binary_warped, left_fit, right_fit):
     nonzero_y = np.array(nonzero[0])
     nonzero_x = np.array(nonzero[1])
 
-    left_lane_inds = ((nonzero_x > (left_fit[0] * (nonzero_y ** 2) + left_fit[1] * nonzero_y +
-                                    left_fit[2] - margin)) & (nonzero_x < (left_fit[0] * (nonzero_y ** 2) +
-                                                                           left_fit[1] * nonzero_y + left_fit[
-                                                                               2] + margin)))
-    right_lane_inds = ((nonzero_x > (right_fit[0] * (nonzero_y ** 2) + right_fit[1] * nonzero_y +
-                                     right_fit[2] - margin)) & (nonzero_x < (right_fit[0] * (nonzero_y ** 2) +
-                                                                             right_fit[1] * nonzero_y + right_fit[
-                                                                                 2] + margin)))
+    left_lane_indices = line_indices(left_fit, nonzero_x, nonzero_y, margin)
+    right_lane_indices = line_indices(right_fit, nonzero_x, nonzero_y, margin)
 
     # Again, extract left and right line pixel positions
-    left_x = nonzero_x[left_lane_inds]
-    left_y = nonzero_y[left_lane_inds]
-    right_x = nonzero_x[right_lane_inds]
-    right_y = nonzero_y[right_lane_inds]
+    left_x = nonzero_x[left_lane_indices]
+    left_y = nonzero_y[left_lane_indices]
+    right_x = nonzero_x[right_lane_indices]
+    right_y = nonzero_y[right_lane_indices]
 
     # Fit new polynomials
-    left_fit_, right_fit_, plot_y, left_fitx, right_fitx = fit_poly(binary_warped.shape, left_x, left_y, right_x,
-                                                                    right_y)
+    plot_y, left_fit_x, poly_fit_x = fit_poly(binary_warped.shape, left_x, left_y)
+    plot_y, right_fit_x, poly_fit_x = fit_poly(binary_warped.shape, right_x, right_y)
 
-    return plot_y, left_fit_, right_fit_, left_fitx, right_fitx
+    return plot_y, left_fit_x, right_fit_x, poly_fit_x
 
 
-# startTime = datetime.now()
-image = cv2.imread(r"./frames/frame-1586.jpg")
+image = cv2.imread(r"./frames/frame-38.jpg")
 
-warped_img = warp(image, source_points, desired_points)
-new_image = binarize(warped_img)
-combiner = np.zeros_like(new_image, dtype=np.uint8)
-combiner[:, 200:1060] = 1
-new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
-
-# gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
-# hls = cv2.cvtColor(warped_img, cv2.COLOR_BGR2HLS)
-
-plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_, out_img_ = fit_polynomial(new_image)
-# print(right_fitx)
-# print(len(plot_y))
-# print(f"right fit {right_fitx[719]}:{plot_y[719]}")
-# print(f"left fit {left_fitx[719]}:{plot_y[719]}")
-warped_img = warp(image, source_points, desired_points)
+warped_img, reverse_mat = warp(image, source_points, desired_points)
 new_image = binarize(warped_img)
 combiner = np.zeros_like(new_image, dtype=np.uint8)
 combiner[:600, 100:1060] = 1
 new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
 
-plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
+# gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
+# hls = cv2.cvtColor(warped_img, cv2.COLOR_BGR2HLS)
 
-if left_fitx_ is not None and right_fitx_ is not None:
-    base_line = (right_fitx_ + left_fitx_) / 2
+plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
+# print(right_fitx)
+# print(len(plot_y))
+# print(f"right fit {right_fitx[719]}:{plot_y[719]}")
+# print(f"left fit {left_fitx[719]}:{plot_y[719]}")
+
+# cv2.imshow("Image", new_image)
+# cv2.waitKey(0)
+base_line = center_points[0] * np.ones(720)
+
+if left_fitx_ is not None:
+    last_left_fitx = left_fitx_
+if right_fitx_ is not None:
+    last_right_fitx = right_fitx_
+base_line = (right_fitx_ + left_fitx_) / 2
 
 distance = center_points[0] - base_line[719]
 print(f'distance: {distance}')
+
+draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
+draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
+draw_polynomial(warped_img, left_fitx_, plot_y_, (0, 0, 255))
+draw_polynomial(warped_img, center_points[0] * np.ones_like(plot_y_), plot_y_)
+
+# Show the image
+cv2.imshow("Quadratic Polynomial", warped_img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+# plt.plot(base_line, plot_y_, color='green')
+# plt.plot(center_points[0] * np.ones_like(plot_y_), plot_y_, color='blue')
+
+######## this is optional #######
+
+# binary_image_zero = np.zeros_like(new_image).astype(np.uint8)
+# color_binary_image = np.dstack((binary_image_zero, binary_image_zero, binary_image_zero))
+#
+# # Recast the x and y points into usable format for cv2.fillPoly()
+# pts_left = np.array([np.transpose(np.vstack([left_fitx_, plot_y_]))])
+# pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx_, plot_y_])))])
+# pts = np.hstack((pts_left, pts_right))
+#
+# # Draw the lane onto the warped blank image
+# cv2.fillPoly(color_binary_image, np.int_([pts]), (0, 255, 0))
+#
+# # Warp the blank back to original image space using inverse perspective matrix (Minv)
+# new_binary_image = cv2.warpPerspective(color_binary_image, reverse_mat, (image.shape[1], image.shape[0]))
+# # Combine the result with the original image
+# result = cv2.addWeighted(image, 1, new_binary_image, 0.3, 0)
+# cv2.imshow('result', result)
+# cv2.waitKey(0)
 
 # print(
 #     f"distance from left line {center_points[0] - left_fitx_[719]} and distance from right line"
@@ -304,6 +341,5 @@ print(f'distance: {distance}')
 
 # plt.imshow(new_image)
 # plt.show()
-# print(datetime.now() - startTime)
 # cv2.imshow("Image", new_image)
 # cv2.waitKey(0)
