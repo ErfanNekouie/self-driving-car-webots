@@ -54,7 +54,7 @@ def resize_image(input_image, output_path=None, width=None, height=None):
         print(f"Resized image saved to {output_path}")
 
     cv2.imshow("Resized Image", resized_image)
-    cv2.waitKey(0)
+    cv2.waitKey(1)
 
 
 def warp(img, src_points, des_points):
@@ -200,9 +200,6 @@ def fit_polynomial(binary_warped):
     # Find our lane pixels first
     left_x, lefty, right_x, righty = find_lane_pixels(binary_warped)
 
-    # Fit a second order polynomial to each using `np.polyfit`
-    print(left_x)
-    print(lefty)
 
     if len(left_x) > 0:
         left_fit = np.polyfit(lefty, left_x, 2)
@@ -289,6 +286,13 @@ right_fitted_line = []
 
 turn = True
 n = 0
+#mohammad
+e = 0
+sum = 0
+kp = 0.002
+ki = 0
+kd = 0
+#mohammad
 # frame_num = 0
 while driver.step() != -1:
     # print("speed:",speed)
@@ -349,9 +353,7 @@ while driver.step() != -1:
     # startTime = datetime.now()
     # image = cv2.imread(r"./frames/frame-1586.jpg")
 
-    image = cv2.imread(r"./frames/frame-0.jpg")
-
-    warped_img = warp(image, source_points, desired_points)
+    warped_img = warp(frame, source_points, desired_points)
     new_image = binarize(warped_img)
     combiner = np.zeros_like(new_image, dtype=np.uint8)
     combiner[:600, 100:1060] = 1
@@ -373,10 +375,20 @@ while driver.step() != -1:
             right_fitted_line = True
             distance = right_fitx_[719] - center_points[0]
 
-# resize_image(frame, width=400)
-############################################
-driver.setSteeringAngle(angle)
-driver.setCruisingSpeed(speed)
+    #resize_image(frame, width=400)
+###########################################  #
+    # control code
+    distance = 300 - distance
+    derror = distance - e
+    e = distance
+    sum += distance
+    speed = 0.5
+    angle = kp * distance + ki * sum + kd * derror 
+    print(distance)
+    
+    
+    driver.setSteeringAngle(angle)
+    driver.setCruisingSpeed(speed)
 
 writer.release()
 cv2.destroyAllWindows()
