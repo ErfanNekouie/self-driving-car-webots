@@ -200,7 +200,6 @@ def fit_polynomial(binary_warped):
     # Find our lane pixels first
     left_x, lefty, right_x, righty = find_lane_pixels(binary_warped)
 
-
     if len(left_x) > 0:
         left_fit = np.polyfit(lefty, left_x, 2)
     else:
@@ -274,6 +273,8 @@ driver.setCruisingSpeed(speed)
 right = False
 printCounter = 0
 i = 0
+
+# Erfan variables
 source_points = [(450, 370), (0, 600), (1180, 600), (880, 370)]
 desired_points = [(200, 0), (200, 720), (1000, 720), (1000, 0)]
 center_points = (640, 720)
@@ -284,15 +285,20 @@ right_line_found = False
 left_fitted_line = []
 right_fitted_line = []
 
+base_line = center_points[0] * np.ones(720)
+# Erfan variables
+
 turn = True
 n = 0
-#mohammad
+
+# Mohammad variables
 e = 0
 sum = 0
 kp = 0.002
 ki = 0
 kd = 0
-#mohammad
+# Mohammad variables
+
 # frame_num = 0
 while driver.step() != -1:
     # print("speed:",speed)
@@ -361,32 +367,23 @@ while driver.step() != -1:
 
     plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
 
-    if not left_fitted_line:
-        if left_fitx_ is not None:
-            # print(center_points[0] - left_fitx_[719])
-            left_fitted_line = True
-            distance = center_points[0] - left_fitx_[719]
+    if left_fitx_ is not None and right_fitx_ is not None:
+        base_line = (right_fitx_ + left_fitx_) / 2
 
-    # else:
+    distance = center_points[0] - base_line[719]
+    print(f'distance: {distance}')
 
-    if not right_fitted_line and left_fitx_ is None:
-        if right_fitx_ is not None:
-            # print(right_fitx_[719] - center_points[0])
-            right_fitted_line = True
-            distance = right_fitx_[719] - center_points[0]
-
-    #resize_image(frame, width=400)
-###########################################  #
+    # resize_image(frame, width=400)
+    ###########################################  #
     # control code
     distance = 300 - distance
     derror = distance - e
     e = distance
     sum += distance
     speed = 0.5
-    angle = kp * distance + ki * sum + kd * derror 
+    angle = kp * distance + ki * sum + kd * derror
     print(distance)
-    
-    
+
     driver.setSteeringAngle(angle)
     driver.setCruisingSpeed(speed)
 
