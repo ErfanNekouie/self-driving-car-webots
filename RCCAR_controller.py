@@ -27,34 +27,34 @@ matplotlib.use("TkAgg")
 
 # lane finding functions
 def resize_image(input_image, output_path=None, width=None, height=None):
-        # Load the image from the input path
-        if input_image is None:
-            print(f"Error: Could not load image from {input_path}")
-            return
-    
-        # Get the original dimensions of the image
-        original_height, original_width = input_image.shape[:2]
-    
-        # Calculate the new dimensions of the image
-        if width is None:
-            # Calculate the width from the given height while maintaining the aspect ratio
-            aspect_ratio = original_width / original_height
-            width = int(height * aspect_ratio)
-        elif height is None:
-            # Calculate the height from the given width while maintaining the aspect ratio
-            aspect_ratio = original_height / original_width
-            height = int(width * aspect_ratio)
-    
-        # Resize the image
-        resized_image = cv2.resize(input_image, (width, height), interpolation=cv2.INTER_AREA)
-    
-        # Save the resized image to the output path
-        if output_path is not None:
-            cv2.imwrite(output_path, resized_image)
-            print(f"Resized image saved to {output_path}")
+    # Load the image from the input path
+    if input_image is None:
+        print(f"Error: Could not load image from {input_path}")
+        return
 
-        cv2.imshow("Resized Image", resized_image)
-        cv2.waitKey(0)    
+    # Get the original dimensions of the image
+    original_height, original_width = input_image.shape[:2]
+
+    # Calculate the new dimensions of the image
+    if width is None:
+        # Calculate the width from the given height while maintaining the aspect ratio
+        aspect_ratio = original_width / original_height
+        width = int(height * aspect_ratio)
+    elif height is None:
+        # Calculate the height from the given width while maintaining the aspect ratio
+        aspect_ratio = original_height / original_width
+        height = int(width * aspect_ratio)
+
+    # Resize the image
+    resized_image = cv2.resize(input_image, (width, height), interpolation=cv2.INTER_AREA)
+
+    # Save the resized image to the output path
+    if output_path is not None:
+        cv2.imwrite(output_path, resized_image)
+        print(f"Resized image saved to {output_path}")
+
+    cv2.imshow("Resized Image", resized_image)
+    cv2.waitKey(0)
     
     
 	source_points = [(450, 370), (0, 600), (1180, 600), (880, 370)]
@@ -330,7 +330,7 @@ i = 0
 
 turn = True
 n = 0
-frame_num = 0
+# frame_num = 0
 while driver.step() != -1:
     # print("speed:",speed)
     # print("Hello World!")
@@ -387,8 +387,8 @@ while driver.step() != -1:
     image = np.frombuffer(img, np.uint8).reshape((camera.getHeight(), camera.getWidth(), 4))
     frame = image[:,:,:3]
     
-    cv2.imwrite(f"frame-{frame_num}.jpg", frame)
-    frame_num += 1
+    # cv2.imwrite(f"frame-{frame_num}.jpg", frame)
+    # frame_num += 1
     # cv2.imshow("frame" , image)
     # cv2.waitKey(1)
     
@@ -420,9 +420,9 @@ while driver.step() != -1:
 	    print(right_fitx_[719] - center_points[0])
 	    right_fitted_line = True
 
-	# print(
-	#     f"distance from left line {center_points[0] - left_fitx_[719]} and distance from right line"
-	#     f" {right_fitx_[719] - center_points[0]}")
+	print(
+	    f"distance from left line {center_points[0] - left_fitx_[719]} and distance from right line"
+	    f" {right_fitx_[719] - center_points[0]}")
 
 	# if left_line_found and right_line_found:
 
