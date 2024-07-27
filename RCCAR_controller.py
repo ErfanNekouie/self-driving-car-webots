@@ -288,6 +288,7 @@ def calculate_curvature(x, y):
 
     return curvature
 
+
 def line_indices(poly_fitted, non_zero_arr_x, non_zero_arr_y, margin):
     return ((non_zero_arr_x > (
             poly_fitted[0] * (non_zero_arr_y ** 2) + poly_fitted[1] * non_zero_arr_y + poly_fitted[2] - margin)) &
