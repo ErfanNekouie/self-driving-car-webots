@@ -130,17 +130,27 @@ def draw_polynomial(image_inner, x_values, y_values, color=(0, 255, 0)):
 def find_lane_pixels(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
+    plt.plot(histogram)
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = int(histogram.shape[0] // 2)
-    left_x_base = np.argmax(histogram[:midpoint])
-    right_x_base = np.argmax(histogram[midpoint:]) + midpoint
+    left_side = histogram[:midpoint]
+    right_side = histogram[midpoint:]
+    left_x_base = np.argmax(left_side)
+    right_x_base = np.argmax(right_side) + midpoint
+
+    # for idx in range(len(left_side)):
+    #     if abs(left_side[idx] - left_x_base) > 5:
+    #         left_side[idx] = 0
+    # for idx in range(len(right_side)):
+    #     if abs(right_side[idx] - right_x_base) > 5:
+    #         right_side[idx] = 0
 
     # HYPERPARAMETERS
     # Choose the number of sliding windows
-    n_windows = 9
+    n_windows = 8
     # Set the width of the windows +/- margin
-    margin = 100
+    margin = 30
     # Set minimum number of pixels found to recenter window
     min_pix = 50
 
@@ -178,10 +188,27 @@ def find_lane_pixels(binary_warped):
         left_lane_indices.append(good_left_indices)
         right_lane_indices.append(good_right_indices)
 
+        # print('right side', sum(good_right_indices - np.mean(good_right_indices)))
+        # print('left side', sum(good_left_indices - np.mean(good_left_indices)))
+
         # If you found > min_pix pixels, recenter next window on their mean position
+        # left_sum = 0
+        # right_sum = 0
         if len(good_left_indices) > min_pix:
+            # left_mean = np.mean(good_left_indices)
+            # for idx in range(len(good_left_indices)):
+            #     left_sum += (good_left_indices[idx] - left_mean) ** 2
+            # left_sum /= len(good_left_indices)
+            # print(left_sum)
             left_x_current = int(np.mean(non_zero_x[good_left_indices]))
+
         if len(good_right_indices) > min_pix:
+            # right_mean = np.mean(good_right_indices)
+            # for idx in range(len(good_right_indices)):
+            #     right_sum += (good_right_indices[idx] - right_mean) ** 2
+            # right_sum /= len(good_right_indices)
+            # # print(right_sum)
+            # if right_sum < 5000000:
             right_x_current = int(np.mean(non_zero_x[good_right_indices]))
 
     # Concatenate the arrays of indices (previously was a list of lists of pixels)
@@ -235,14 +262,36 @@ def fit_polynomial(binary_warped):
     return plot_y, left_fit, right_fit, left_fitx, right_fitx
 
 
-def fit_poly(img_shape, left_x, lefty, right_x, righty):
-    left_fit = np.polyfit(lefty, left_x, 2)
-    right_fit = np.polyfit(righty, right_x, 2)
+def fit_poly(img_shape, x_axis, y_axis):
+    polynomial_fit = np.polyfit(y_axis, x_axis, 2)
     plot_y = np.linspace(0, img_shape[0] - 1, img_shape[0])
-    left_fitx = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
-    right_fitx = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
+    plot_x = polynomial_fit[0] * plot_y ** 2 + polynomial_fit[1] * plot_y + polynomial_fit[2]
 
-    return left_fit, right_fit, plot_y, left_fitx, right_fitx
+    return plot_x, plot_y, polynomial_fit
+
+
+def search_around_poly(binary_warped, poly_fit):
+    margin = 30
+
+    # Grab activated pixels
+    nonzero = binary_warped.nonzero()
+    nonzero_y = np.array(nonzero[0])
+    nonzero_x = np.array(nonzero[1])
+
+    # left_lane_indices = line_indices(left_fit, nonzero_x, nonzero_y, margin)
+    right_lane_indices = line_indices(poly_fit, nonzero_x, nonzero_y, margin)
+
+    # Again, extract left and right line pixel positions
+    # left_x = nonzero_x[left_lane_indices]
+    # left_y = nonzero_y[left_lane_indices]
+    right_x = nonzero_x[right_lane_indices]
+    right_y = nonzero_y[right_lane_indices]
+
+    # Fit new polynomials
+    # plot_y, left_fit_x, poly_fit_x = fit_poly(binary_warped.shape, left_x, left_y)
+    plot_y, right_fit_x, poly_fit_x = fit_poly(binary_warped.shape, right_x, right_y)
+
+    return plot_y, right_fit_x, poly_fit_x
 
 
 # control functions
@@ -365,22 +414,40 @@ while driver.step() != -1:
     # startTime = datetime.now()
     # image = cv2.imread(r"./frames/frame-1586.jpg")
 
-    warped_img = warp(frame, source_points, desired_points)
+    warped_img, reverse_mat = warp(frame, source_points, desired_points)
     new_image = binarize(warped_img)
     combiner = np.zeros_like(new_image, dtype=np.uint8)
-    combiner[:600, 100:1060] = 1
+    combiner[:, 200:1060] = 1
+    combiner[:, 400:850] = 0
+    # for col in range(0, 400, 10):
+    #     for row in range(0, 400, 10):
+    #         combiner[row - 10:row, 450 + row:] = 0
     new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
 
+    # gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
+    # hls = cv2.cvtColor(warped_img, cv2.COLOR_BGR2HLS)
+
     plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
+    # print(right_fitx)
+    # print(len(plot_y))
+    # print(f"right fit {right_fitx[719]}:{plot_y[719]}")
+    # print(f"left fit {left_fitx[719]}:{plot_y[719]}")
+
+    # cv2.imshow("Image", new_image)
+    # cv2.waitKey(0)
+    base_line = center_points[0] * np.ones(720)
 
     if left_fitx_ is not None:
         last_left_fitx = left_fitx_
+    else:
+        plot_y_, last_left_fitx, left_fit_ = search_around_poly(warped_img, left_fit_)
     if right_fitx_ is not None:
         last_right_fitx = right_fitx_
-    base_line = (last_right_fitx + last_left_fitx) / 2
+    else:
+        plot_y_, last_right_fitx, right_fit_ = search_around_poly(warped_img, right_fit_)
+    base_line = (right_fitx_ + left_fitx_) / 2
 
     distance = base_line[719] - center_points[0]
-    print(f'distance: {distance} , sum1: {sum1} , derror: {derror}')
 
     # draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
     # draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
@@ -395,7 +462,7 @@ while driver.step() != -1:
     # resize_image(frame, width=400)
     ###########################################  #
     # control code
-    if(-200 < distance and distance <200):
+    if (-200 < distance and distance < 200):
         derror = distance - e
         e = distance
         sum1 += distance
@@ -404,13 +471,13 @@ while driver.step() != -1:
     else:
         print("else distance")
         speed = -0.5
-        if(e < 0):
+        if (e < 0):
             angle = 0.30
             cv2.waitKey(500)
         else:
             angle = -0.30
             cv2.waitKey(500)
     driver.setSteeringAngle(angle)
-    driver.setCruisingSpeed(speed)   
+    driver.setCruisingSpeed(speed)
 writer.release()
 cv2.destroyAllWindows()
