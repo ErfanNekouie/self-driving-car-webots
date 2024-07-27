@@ -505,21 +505,16 @@ while driver.step() != -1:
     # resize_image(frame, width=400)
     ###########################################  #
     # control code
-    if (-200 < distance and distance < 200):
-        derror = distance - e
-        e = distance
-        sum1 += distance
-        angle = kp * distance + ki * sum1 + kd * derror
-        speed = 0.5
-    else:
-        print("else distance")
-        speed = -0.5
-        if (e < 0):
-            angle = 0.30
-            cv2.waitKey(500)
-        else:
-            angle = -0.30
-            cv2.waitKey(500)
+    curve = abs(left_curve - right_curve)
+    if(curve>0.05):
+        distance = e
+        sum1 = 0
+         
+    derror = distance - e
+    e = distance
+    sum1 += distance
+    angle = kp * distance + ki * sum1 + kd * derror
+    speed = 0.5
     driver.setSteeringAngle(angle)
     driver.setCruisingSpeed(speed)
 writer.release()
