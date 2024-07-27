@@ -322,6 +322,7 @@ def search_around_poly(binary_warped, poly_fit):
 
 # control functions
 
+
 driver = Driver()
 basicTimeStep = int(driver.getBasicTimeStep())
 
@@ -368,7 +369,8 @@ right_fitted_line = []
 base_line = center_points[0] * np.ones(720)
 # Erfan variables
 
-turn = True
+last_left = False
+last_right = False
 n = 0
 last_left_fitx = 0
 last_right_fitx = 0
@@ -379,9 +381,12 @@ right_curve = 0
 e = 0
 sum1 = 0
 kp = 0.02
-ki = 0
-kd = 0
+ki = 0.000004
+kd = 0.005
+
 # Mohammad variables
+
+# f = open("distances", 'a')
 
 # frame_num = 0
 while driver.step() != -1:
@@ -440,11 +445,10 @@ while driver.step() != -1:
     frame = image[:, :, :3]
 
     ############################
-    """lane detection phase"""
     # startTime = datetime.now()
     # image = cv2.imread(r"./frames/frame-1586.jpg")
 
-    warped_img, reverse_mat = warp(frame, source_points, desired_points)
+    warped_img = warp(frame, source_points, desired_points)
     new_image = binarize(warped_img)
     combiner = np.zeros_like(new_image, dtype=np.uint8)
     combiner[:, 200:1060] = 1
@@ -456,28 +460,29 @@ while driver.step() != -1:
 
     # gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
     # hls = cv2.cvtColor(warped_img, cv2.COLOR_BGR2HLS)
-
-    plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
     # print(right_fitx)
     # print(len(plot_y))
     # print(f"right fit {right_fitx[719]}:{plot_y[719]}")
     # print(f"left fit {left_fitx[719]}:{plot_y[719]}")
+    if (not left_line_found) and (not left_line_found):
+        plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
+    elif left_line_found:
+        plot_y_, last_left_fitx, left_fit_ = search_around_poly(warped_img, left_fit_)
+    elif right_line_found:
+        plot_y_, last_right_fitx, right_fit_ = search_around_poly(warped_img, right_fit_)
+        
+               
 
     # cv2.imshow("Image", new_image)
     # cv2.waitKey(0)
     base_line = center_points[0] * np.ones(720)
-
+    
     if left_fitx_ is not None:
         left_curve = sum(calculate_curvature(plot_y_, left_fitx_))
         # last_left_fitx = left_fitx_
-    else:
-        plot_y_, last_left_fitx, left_fit_ = search_around_poly(warped_img, left_fit_)
-
     if right_fitx_ is not None:
         right_curve = sum(calculate_curvature(plot_y_, right_fitx_))
-        # last_right_fitx = right_fitx_
-    else:
-        plot_y_, last_right_fitx, right_fit_ = search_around_poly(warped_img, right_fit_)
+        # last_right_fitx = right_fitx_ 
 
     if abs(left_curve - right_curve) > 0.5 and (right_fitx_ is not None and left_fitx_ is not None):
         if left_curve > right_curve:
@@ -487,10 +492,13 @@ while driver.step() != -1:
     else:
         last_left_fitx = left_fitx_
         last_right_fitx = right_fitx_
-
-    base_line = (last_right_fitx + last_left_fitx) / 2
+    if (last_right_fitx is not None) and (last_left_fitx is not None):
+        base_line = (last_right_fitx + last_left_fitx) / 2
 
     distance = base_line[719] - center_points[0]
+    if abs(distance) > 40:
+        distance = 0
+    # f.write(str(distance)+'_')
 
     # draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
     # draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
@@ -503,19 +511,32 @@ while driver.step() != -1:
     # cv2.waitKey(1)
 
     # resize_image(frame, width=400)
+    # resize_image(frame, width=400)
     ###########################################  #
     # control code
-    curve = abs(left_curve - right_curve)
-    if(curve>0.05):
-        distance = e
-        sum1 = 0
+    # curve = abs(left_curve - right_curve)
+    # if(curve>0.5):
+        # distance = e
+        # sum1 = 0
          
     derror = distance - e
     e = distance
     sum1 += distance
     angle = kp * distance + ki * sum1 + kd * derror
-    speed = 0.5
+    speed = 2
+    print(f'this is distance = {int(distance)} ,      angle = {round(angle, 3)}')
     driver.setSteeringAngle(angle)
     driver.setCruisingSpeed(speed)
+
+    
+
 writer.release()
 cv2.destroyAllWindows()
+# f.close()
+
+
+
+
+
+
+
