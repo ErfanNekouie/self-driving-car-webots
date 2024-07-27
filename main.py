@@ -119,7 +119,7 @@ def find_lane_pixels(binary_warped):
 
     # HYPERPARAMETERS
     # Choose the number of sliding windows
-    n_windows = 8
+    n_windows = 9
     # Set the width of the windows +/- margin
     margin = 100
     # Set minimum number of pixels found to recenter window
@@ -270,7 +270,7 @@ def fit_poly(img_shape, x_axis, y_axis):
 
 
 def search_around_poly(binary_warped, poly_fit):
-    margin = 30
+    margin = 100
 
     # Grab activated pixels
     nonzero = binary_warped.nonzero()
@@ -305,7 +305,7 @@ def search_around_poly(binary_warped, poly_fit):
 #     return curve_rad
 
 
-image = cv2.imread(r"./frames/frame-910.jpg")
+image = cv2.imread(r"./frames/frame-779.jpg")
 
 warped_img, reverse_mat = warp(image, source_points, desired_points)
 new_image = binarize(warped_img)
@@ -330,28 +330,45 @@ plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_ima
 # cv2.waitKey(0)
 base_line = center_points[0] * np.ones(720)
 
+last_left_fitx = 0
+last_right_fitx = 0
+left_curve = 0
+right_curve = 0
+
 if left_fitx_ is not None:
-    last_left_fitx = left_fitx_
+    left_curve = sum(calculate_curvature(plot_y_, left_fitx_))
+    # last_left_fitx = left_fitx_
 else:
     plot_y_, last_left_fitx, left_fit_ = search_around_poly(warped_img, left_fit_)
+
 if right_fitx_ is not None:
-    last_right_fitx = right_fitx_
+    right_curve = sum(calculate_curvature(plot_y_, right_fitx_))
+    # last_right_fitx = right_fitx_
 else:
     plot_y_, last_right_fitx, right_fit_ = search_around_poly(warped_img, right_fit_)
 
-base_line = (right_fitx_ + left_fitx_) / 2
+if abs(left_curve - right_curve) > 0.5 and (right_fitx_ is not None and left_fitx_ is not None):
+    if left_curve > right_curve:
+        last_right_fitx = right_fitx_
+    else:
+        last_left_fitx = left_fitx_
+else:
+    last_left_fitx = left_fitx_
+    last_right_fitx = right_fitx_
+
+base_line = (last_right_fitx + last_left_fitx) / 2
 
 distance = center_points[0] - base_line[719]
-left_curve = sum(calculate_curvature(plot_y_, last_left_fitx))
-right_curve = sum(calculate_curvature(plot_y_, last_right_fitx))
+# left_curve = sum(calculate_curvature(plot_y_, last_left_fitx))
+# right_curve = sum(calculate_curvature(plot_y_, last_right_fitx))
 print(f'distance: {distance}')
 print(f'left_curve: {left_curve}')
 print(f'right_curve: {right_curve}')
 print(f'difference of curves: {left_curve - right_curve}')
 
 draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
-draw_polynomial(warped_img, right_fitx_, plot_y_, (0, 0, 255))
-draw_polynomial(warped_img, left_fitx_, plot_y_, (0, 0, 255))
+draw_polynomial(warped_img, last_right_fitx, plot_y_, (0, 0, 255))
+draw_polynomial(warped_img, last_left_fitx, plot_y_, (0, 0, 255))
 draw_polynomial(warped_img, center_points[0] * np.ones_like(plot_y_), plot_y_)
 
 # Show the image
