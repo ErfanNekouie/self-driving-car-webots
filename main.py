@@ -5,25 +5,62 @@ import matplotlib
 
 matplotlib.use('TkAgg')
 
-source_points = [(450, 370), (0, 600), (1180, 600), (880, 370)]
-desired_points = [(200, 0), (200, 720), (1000, 720), (1000, 0)]
-center_points = (640, 720)
+class KalmanFilter1D:
+    def __init__(self, initial_state, initial_uncertainty, process_variance, measurement_variance):
+        self.state_estimate = initial_state
+        self.uncertainty = initial_uncertainty
+        self.process_variance = process_variance
+        self.measurement_variance = measurement_variance
 
-left_line_found = False
-right_line_found = False
+    def predict(self):
+        # Prediction step
+        self.state_estimate = self.state_estimate  # In 1D, no change in state
+        self.uncertainty = self.uncertainty + self.process_variance
 
-left_fitted_line = []
-right_fitted_line = []
+    def update(self, measurement):
+        # Update step
+        kalman_gain = self.uncertainty / (self.uncertainty + self.measurement_variance)
+        self.state_estimate = self.state_estimate + kalman_gain * (measurement - self.state_estimate)
+        self.uncertainty = (1 - kalman_gain) * self.uncertainty
+
+    def get_state(self):
+        return self.state_estimate, self.uncertainty
+
+
+def calculate_angle_between_vectors(u, v):
+    # Ensure the vectors are numpy arrays
+    u = np.array(u)
+    v = np.array(v)
+
+    # Calculate the dot product
+    dot_product = np.dot(u.T, v)
+
+    # Calculate the magnitudes (norms) of the vectors
+    norm_u = np.linalg.norm(u)
+    norm_v = np.linalg.norm(v)
+
+    # Calculate the cosine of the angle
+    cos_theta = dot_product / (norm_u * norm_v)
+
+    # Clip cos_theta to avoid numerical issues (values should be in [-1, 1])
+    cos_theta = np.clip(cos_theta, -1, 1)
+
+    # Calculate the angle in radians
+    angle_rad = np.arccos(cos_theta)
+
+    # Convert the angle to degrees (optional)
+    angle_deg = np.degrees(angle_rad)
+
+    return angle_rad, angle_deg
 
 
 def warp(img, src_points, des_points):
-    img_size = (img.shape[1], img.shape[0])
+    img_size = (320, 180)
     src = np.float32(src_points)
     dst = np.float32(des_points)
     transfer_matrices = cv2.getPerspectiveTransform(src, dst)
-    un_transfer_matrices = cv2.getPerspectiveTransform(dst, src)
     warped = cv2.warpPerspective(img, transfer_matrices, img_size, flags=cv2.INTER_LINEAR)
-    return warped, un_transfer_matrices
+    return warped
 
 
 def abs_sobel_thresh(gray, orient='x', sobel_kernel=3, thresh=(0, 255)):
@@ -88,20 +125,10 @@ def line_indices(poly_fitted, non_zero_arr_x, non_zero_arr_y, margin):
                                poly_fitted[1] * non_zero_arr_y + poly_fitted[2] + margin)))
 
 
-# def find_lane_pixels_ind(binary_warped, mode="left"):
-#     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
-#     midpoint = int(histogram.shape[0] // 2)
-#     left_x_base = np.argmax(histogram[:midpoint])
-#     right_x_base = np.argmax(histogram[midpoint:]) + midpoint
-#     if mode == "both":
-#         left_x_base = np.argmax(histogram[:midpoint])
-#     if mode == ""
-
-
 def find_lane_pixels(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
-    plt.plot(histogram)
+    # plt.plot(histogram)
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = int(histogram.shape[0] // 2)
@@ -110,18 +137,11 @@ def find_lane_pixels(binary_warped):
     left_x_base = np.argmax(left_side)
     right_x_base = np.argmax(right_side) + midpoint
 
-    # for idx in range(len(left_side)):
-    #     if abs(left_side[idx] - left_x_base) > 5:
-    #         left_side[idx] = 0
-    # for idx in range(len(right_side)):
-    #     if abs(right_side[idx] - right_x_base) > 5:
-    #         right_side[idx] = 0
-
     # HYPERPARAMETERS
     # Choose the number of sliding windows
-    n_windows = 9
+    n_windows = 8
     # Set the width of the windows +/- margin
-    margin = 100
+    margin = 80
     # Set minimum number of pixels found to recenter window
     min_pix = 50
 
@@ -159,27 +179,10 @@ def find_lane_pixels(binary_warped):
         left_lane_indices.append(good_left_indices)
         right_lane_indices.append(good_right_indices)
 
-        # print('right side', sum(good_right_indices - np.mean(good_right_indices)))
-        # print('left side', sum(good_left_indices - np.mean(good_left_indices)))
-
-        # If you found > min_pix pixels, recenter next window on their mean position
-        # left_sum = 0
-        # right_sum = 0
         if len(good_left_indices) > min_pix:
-            # left_mean = np.mean(good_left_indices)
-            # for idx in range(len(good_left_indices)):
-            #     left_sum += (good_left_indices[idx] - left_mean) ** 2
-            # left_sum /= len(good_left_indices)
-            # print(left_sum)
             left_x_current = int(np.mean(non_zero_x[good_left_indices]))
 
         if len(good_right_indices) > min_pix:
-            # right_mean = np.mean(good_right_indices)
-            # for idx in range(len(good_right_indices)):
-            #     right_sum += (good_right_indices[idx] - right_mean) ** 2
-            # right_sum /= len(good_right_indices)
-            # # print(right_sum)
-            # if right_sum < 5000000:
             right_x_current = int(np.mean(non_zero_x[good_right_indices]))
 
     # Concatenate the arrays of indices (previously was a list of lists of pixels)
@@ -215,10 +218,10 @@ def calculate_curvature(x, y):
     # Calculate the curvature
     curvature = np.abs(ddx * dy - ddy * dx) / np.power(dx ** 2 + dy ** 2, 1.5)
 
-    return curvature
+    return sum(curvature)
 
 
-def fit_polynomial(binary_warped):
+def fit_polynomial(binary_warped, plot_y):
     # Find our lane pixels first
     left_x, lefty, right_x, righty = find_lane_pixels(binary_warped)
 
@@ -231,12 +234,7 @@ def fit_polynomial(binary_warped):
         right_fit = np.polyfit(righty, right_x, 2)
     else:
         right_fit = None
-    # print("+++++++++++++++++++++++++++++++++++++++")
-    # print(left_fit)
-    # print(right_fit)
 
-    # Generate x and y values for plotting
-    plot_y = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
     try:
         left_fitx = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
     except TypeError:
@@ -250,7 +248,7 @@ def fit_polynomial(binary_warped):
         right_fitx = None
         print('The function failed to fit a line for right side!')
 
-    return plot_y, left_fit, right_fit, left_fitx, right_fitx
+    return left_fit, right_fit, left_fitx, right_fitx
 
 
 def draw_polynomial(image_inner, x_values, y_values, color=(0, 255, 0)):
@@ -261,16 +259,15 @@ def draw_polynomial(image_inner, x_values, y_values, color=(0, 255, 0)):
         cv2.circle(image_inner, tuple(point), 1, color, 12)
 
 
-def fit_poly(img_shape, x_axis, y_axis):
+def fit_poly(img_shape, x_axis, y_axis, plot_y):
     polynomial_fit = np.polyfit(y_axis, x_axis, 2)
-    plot_y = np.linspace(0, img_shape[0] - 1, img_shape[0])
     plot_x = polynomial_fit[0] * plot_y ** 2 + polynomial_fit[1] * plot_y + polynomial_fit[2]
 
-    return plot_x, plot_y, polynomial_fit
+    return plot_x, polynomial_fit
 
 
-def search_around_poly(binary_warped, poly_fit):
-    margin = 100
+def search_around_poly(binary_warped, poly_fit, plot_y):
+    margin = 40
 
     # Grab activated pixels
     nonzero = binary_warped.nonzero()
@@ -288,150 +285,161 @@ def search_around_poly(binary_warped, poly_fit):
 
     # Fit new polynomials
     # plot_y, left_fit_x, poly_fit_x = fit_poly(binary_warped.shape, left_x, left_y)
-    plot_y, right_fit_x, poly_fit_x = fit_poly(binary_warped.shape, right_x, right_y)
+    right_fit_x, poly_fit_x = fit_poly(binary_warped.shape, right_x, right_y, plot_y)
 
-    return plot_y, right_fit_x, poly_fit_x
-
-
-# def measure_curvature(plot_y, left_fit_cr):
-#     # Define y-value where we want radius of curvature
-#     # We'll choose the maximum y-value, corresponding to the bottom of the image
-#     y_eval = np.max(plot_y)
-#
-#     # Calculation of R_curve (radius of curvature)
-#     curve_rad = ((1 + (2 * left_fit_cr[0] * y_eval + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
-#         2 * left_fit_cr[0])
-#
-#     return curve_rad
+    return right_fit_x, poly_fit_x
 
 
-image = cv2.imread(r"./frames/frame-779.jpg")
+def one_line_dist_finder(x_fitted, half_road, indicator):
+    if indicator == 'l':
+        estimated_line_x = x_fitted + half_road
+    elif indicator == 'r':
+        estimated_line_x = x_fitted - half_road
+    return estimated_line_x
 
-warped_img, reverse_mat = warp(image, source_points, desired_points)
-new_image = binarize(warped_img)
-combiner = np.zeros_like(new_image, dtype=np.uint8)
-combiner[:, 200:1060] = 1
-combiner[:, 400:850] = 0
-# for col in range(0, 400, 10):
-#     for row in range(0, 400, 10):
-#         combiner[row - 10:row, 450 + row:] = 0
-new_image = cv2.bitwise_and(combiner, new_image, mask=combiner).astype(np.float64)
 
-# gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
-# hls = cv2.cvtColor(warped_img, cv2.COLOR_BGR2HLS)
+# variables
+source_points = [(350, 440), (0, 630), (1205, 630), (950, 440)]
+desired_points = [(40, 0), (40, 180), (280, 180), (280, 0)]
+center_points = (160, 180)
+middle_line = center_points[0] * np.ones(180)
 
-plot_y_, left_fit_, right_fit_, left_fitx_, right_fitx_ = fit_polynomial(new_image)
-# print(right_fitx)
-# print(len(plot_y))
-# print(f"right fit {right_fitx[719]}:{plot_y[719]}")
-# print(f"left fit {left_fitx[719]}:{plot_y[719]}")
-
-# cv2.imshow("Image", new_image)
-# cv2.waitKey(0)
-base_line = center_points[0] * np.ones(720)
-
+y_plot = np.linspace(0, 179, 180)
+fit_left = []
+fit_right = []
+fitx_left = []
+fitx_right = []
 last_left_fitx = 0
 last_right_fitx = 0
 left_curve = 0
 right_curve = 0
+identifier = None
 
-if left_fitx_ is not None:
-    left_curve = sum(calculate_curvature(plot_y_, left_fitx_))
-    # last_left_fitx = left_fitx_
-else:
-    plot_y_, last_left_fitx, left_fit_ = search_around_poly(warped_img, left_fit_)
+left_line_found = False
+right_line_found = False
 
-if right_fitx_ is not None:
-    right_curve = sum(calculate_curvature(plot_y_, right_fitx_))
-    # last_right_fitx = right_fitx_
-else:
-    plot_y_, last_right_fitx, right_fit_ = search_around_poly(warped_img, right_fit_)
+left_fitted_line = []
+right_fitted_line = []
 
-if abs(left_curve - right_curve) > 0.5 and (right_fitx_ is not None and left_fitx_ is not None):
-    if left_curve > right_curve:
-        last_right_fitx = right_fitx_
+combiner = np.zeros((180, 320), dtype=np.uint8)
+combiner[:, 30:300] = 1
+combiner[:, 150:220] = 0
+
+distance = 0
+
+# taking input
+# image = cv2.imread(r"./frames/frame-1003.jpg")
+
+
+# Create a VideoCapture object and read from input file
+cap = cv2.VideoCapture('./test1.avi')
+
+# Check if camera opened successfully
+if (cap.isOpened() == False):
+    print("Error opening video file")
+
+initial_state = 0.0
+initial_uncertainty = 1.0
+process_variance = 0.001
+measurement_variance = 0.1
+
+kf = KalmanFilter1D(initial_state, initial_uncertainty, process_variance, measurement_variance)
+
+distances = []
+new_measurements = []
+
+# Read until video is completed
+while (cap.isOpened()):
+
+    # Capture frame-by-frame
+    ret, frame = cap.read()
+    if ret == True:
+        # Display the resulting frame
+        # cv2.imshow('Frame', frame)
+
+        # warping image and masking it
+        warped_img = warp(frame, source_points, desired_points)
+        warped_binary = binarize(warped_img)
+        warped_binary = cv2.bitwise_and(combiner, warped_binary, mask=combiner).astype(np.float64)
+
+        # finding the fitx and fity
+        # if left_line_found and right_line_found:
+        #     fitx_left, fit_left = search_around_poly(warped_binary, fit_left, y_plot)
+        #     fitx_right, fit_right = search_around_poly(warped_binary, fit_right, y_plot)
+        # else:
+        fit_left, fit_right, fitx_left, fitx_right = fit_polynomial(warped_binary, y_plot)
+
+        if fitx_left is not None:
+            left_line_found = True
+        if fitx_right is not None:
+            right_line_found = True
+
+        # finding the middle line
+        if left_line_found and right_line_found:
+            # comment the next line when running in simulator
+            middle_line = (fitx_left + fitx_right) / 2
+            # middle_line = (fitx_left[719] + fitx_right[719]) / 2
+            left_curve = calculate_curvature(y_plot, fitx_left)
+            right_curve = calculate_curvature(y_plot, fitx_right)
+            # print(left_curve, right_curve)
+            if abs(right_curve - left_curve) > 0.5:
+                identifier = min(right_curve, left_curve)
+        if (left_line_found and not right_line_found) or identifier == left_curve:
+            middle_line = one_line_dist_finder(fitx_left, 130, 'l')
+            # comment the next line when running in simulator
+            fitx_right = one_line_dist_finder(middle_line, 130, 'l')
+        if (right_line_found and not left_line_found) or identifier == right_curve:
+            middle_line = one_line_dist_finder(fitx_right, 130, 'r')
+            # comment the next line when running in simulator
+            fitx_left = one_line_dist_finder(middle_line, 130, 'r')
+
+        # finding distance
+        new_distance = center_points[0] - middle_line[179]
+        if abs(new_distance) > 40:
+            distance = new_distance/10
+        else:
+            distance = new_distance
+            
+        distances.append(distance)
+
+        # the following part is just for showing purposes
+        # print('this is distance', distance)
+        # print(middle_line.shape)
+        # print((center_points[0]*np.ones(180)).shape)
+        # print(calculate_angle_between_vectors(middle_line, center_points[0] * np.ones(180)))
+
+        kf.predict()
+        kf.update(distance)
+        state_estimate, uncertainty = kf.get_state()
+        new_measurements.append(state_estimate)
+        # print(f"State estimate: {state_estimate}, Uncertainty: {uncertainty}")
+
+        draw_polynomial(warped_img, middle_line, y_plot, (255, 0, 0))
+        draw_polynomial(warped_img, fitx_right, y_plot, (0, 0, 255))
+        draw_polynomial(warped_img, fitx_left, y_plot, (0, 0, 255))
+        draw_polynomial(warped_img, center_points[0] * np.ones_like(y_plot), y_plot)
+
+        # cv2.imshow('result', warped_img)
+        # cv2.waitKey(1)
+
+        # Press Q on keyboard to exit
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+            break
+
+    # Break the loop
     else:
-        last_left_fitx = left_fitx_
-else:
-    last_left_fitx = left_fitx_
-    last_right_fitx = right_fitx_
+        break
 
-base_line = (last_right_fitx + last_left_fitx) / 2
+# When everything done, release
+# the video capture object
+cap.release()
 
-distance = center_points[0] - base_line[719]
-# left_curve = sum(calculate_curvature(plot_y_, last_left_fitx))
-# right_curve = sum(calculate_curvature(plot_y_, last_right_fitx))
-print(f'distance: {distance}')
-print(f'left_curve: {left_curve}')
-print(f'right_curve: {right_curve}')
-print(f'difference of curves: {left_curve - right_curve}')
-
-draw_polynomial(warped_img, base_line, plot_y_, (255, 0, 0))
-draw_polynomial(warped_img, last_right_fitx, plot_y_, (0, 0, 255))
-draw_polynomial(warped_img, last_left_fitx, plot_y_, (0, 0, 255))
-draw_polynomial(warped_img, center_points[0] * np.ones_like(plot_y_), plot_y_)
-
-# Show the image
-cv2.imshow("Quadratic Polynomial", warped_img)
-cv2.waitKey(0)
+# Closes all the frames
 cv2.destroyAllWindows()
 
-# plt.imshow(new_image)
+plt.plot(distances)
+plt.plot(new_measurements)
 plt.show()
 
-# plt.plot(base_line, plot_y_, color='green')
-# plt.plot(center_points[0] * np.ones_like(plot_y_), plot_y_, color='blue')
-
-# this is optional
-
-# binary_image_zero = np.zeros_like(new_image).astype(np.uint8)
-# color_binary_image = np.dstack((binary_image_zero, binary_image_zero, binary_image_zero))
-#
-# # Recast the x and y points into usable format for cv2.fillPoly()
-# pts_left = np.array([np.transpose(np.vstack([left_fitx_, plot_y_]))])
-# pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx_, plot_y_])))])
-# pts = np.hstack((pts_left, pts_right))
-#
-# # Draw the lane onto the warped blank image
-# cv2.fillPoly(color_binary_image, np.int_([pts]), (0, 255, 0))
-#
-# # Warp the blank back to original image space using inverse perspective matrix (Minv)
-# new_binary_image = cv2.warpPerspective(color_binary_image, reverse_mat, (image.shape[1], image.shape[0]))
-# # Combine the result with the original image
-# result = cv2.addWeighted(image, 1, new_binary_image, 0.3, 0)
-# cv2.imshow('result', result)
-# cv2.waitKey(0)
-
-# print(
-#     f"distance from left line {center_points[0] - left_fitx_[719]} and distance from right line"
-#     f" {right_fitx_[719] - center_points[0]}")
-
-# if left_line_found and right_line_found:
-
-
-# new_image = cv2.cvtColor(warped_img, cv2.COLOR_BGR2RGB)
 # plt.imshow(warped_img)
 # plt.show()
-# h_channel = hls[:, :, 0]
-# s_channel = hls[:, :, 1]
-# v_channel = hls[:, :, 2]
-#
-# cv2.imshow("Image1", h_channel)
-# cv2.waitKey(0)
-# cv2.imshow("Image2", s_channel)
-# cv2.waitKey(0)
-# cv2.imshow("Image3", v_channel)
-# cv2.waitKey(0)
-
-# print(combiner)
-
-# Perform the bitwise_and operation
-
-# print(hello.shape)
-
-# plot_image = cv2.cvtColor(hello, cv2.COLOR_BGR2RGB)
-
-# plt.imshow(new_image)
-# plt.show()
-# cv2.imshow("Image", new_image)
-# cv2.waitKey(0)
